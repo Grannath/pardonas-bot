@@ -1,6 +1,12 @@
 package de.grannath.pardona.commands
 
 import de.grannath.pardona.Command
+import de.grannath.pardona.commands.EigenschaftCheckResult.CriticalChanceEigenschaftFailure
+import de.grannath.pardona.commands.EigenschaftCheckResult.CriticalChanceEigenschaftSuccess
+import de.grannath.pardona.commands.EigenschaftCheckResult.CriticalEigenschaftFailure
+import de.grannath.pardona.commands.EigenschaftCheckResult.CriticalEigenschaftSuccess
+import de.grannath.pardona.commands.EigenschaftCheckResult.EigenschaftFailure
+import de.grannath.pardona.commands.EigenschaftCheckResult.EigenschaftSuccess
 import org.springframework.stereotype.Component
 import java.util.Random
 
@@ -17,7 +23,7 @@ class EigenschaftCommand : Command {
             keywords.any { it == keyword.toLowerCase() }
 
     override fun buildReply(args: List<String>): String {
-        if (args.size < 1) {
+        if (args.isEmpty()) {
             return "Too few arguments."
         }
 
@@ -29,29 +35,76 @@ class EigenschaftCommand : Command {
         }
 
         return random.eigenschaftCheck(ints[0],
-                                       ints.getOrNull(4) ?: 0)
+                                       ints.getOrNull(1) ?: 0)
                 .toMessage()
     }
 
-    private fun EigenschaftCheckResult.toMessage(): String {
-        if (success) {
-            return "Erfolg! ($result), max. Erschwernis $maxModifier"
-        } else {
-            return "Fehlgeschlagen! ($result), max. Erschwernis $maxModifier"
-        }
-    }
+    private fun EigenschaftCheckResult.toMessage() =
+            when (this) {
+                is CriticalEigenschaftFailure ->
+                    "Patzer! (20, $secondRoll)! max. Erschwernis $maxModifier"
+                is CriticalChanceEigenschaftFailure ->
+                    "Fehlschlag! (20, $secondRoll)! max. Erschwernis $maxModifier"
+                is CriticalEigenschaftSuccess ->
+                    "Kritisch! (1, $secondRoll)! max. Erschwernis $maxModifier"
+                is CriticalChanceEigenschaftSuccess ->
+                    "Erfolg! (20, $secondRoll)! max. Erschwernis $maxModifier"
+                is EigenschaftFailure ->
+                    "Fehlschlag! ($roll)! max. Erschwernis $maxModifier"
+                is EigenschaftSuccess ->
+                    "Erfolg! ($roll)! max. Erschwernis $maxModifier"
+            }
 }
 
 fun Random.eigenschaftCheck(value: Int,
                             modifier: Int = 0): EigenschaftCheckResult {
     val res = nextInt(19) + 1
 
-    val success = res < value - modifier
-    val maxModifier = value - res
-
-    return EigenschaftCheckResult(res, success, maxModifier)
+    if (res == 20) {
+        val res2 = nextInt(19) + 1
+        return if (res2 <= value - modifier) {
+            CriticalChanceEigenschaftFailure(value, res2, value - res2)
+        } else {
+            CriticalEigenschaftFailure(value, res2, value - res2)
+        }
+    } else if (res == 1) {
+        val res2 = nextInt(19) + 1
+        return if (res2 <= value - modifier) {
+            CriticalEigenschaftSuccess(value, res2, value - res2)
+        } else {
+            CriticalChanceEigenschaftSuccess(value, res2, value - res2)
+        }
+    } else {
+        return if (res <= value - modifier) {
+            EigenschaftSuccess(value, res, value - res)
+        } else {
+            EigenschaftFailure(value, res, value - res)
+        }
+    }
 }
 
-data class EigenschaftCheckResult(val result: Int,
-                                  val success: Boolean,
-                                  val maxModifier: Int)
+sealed class EigenschaftCheckResult {
+    data class CriticalEigenschaftSuccess(val value: Int,
+                                          val secondRoll: Int,
+                                          val maxModifier: Int) : EigenschaftCheckResult()
+
+    data class CriticalChanceEigenschaftSuccess(val value: Int,
+                                                val secondRoll: Int,
+                                                val maxModifier: Int) : EigenschaftCheckResult()
+
+    data class CriticalEigenschaftFailure(val value: Int,
+                                          val secondRoll: Int,
+                                          val maxModifier: Int) : EigenschaftCheckResult()
+
+    data class CriticalChanceEigenschaftFailure(val value: Int,
+                                                val secondRoll: Int,
+                                                val maxModifier: Int) : EigenschaftCheckResult()
+
+    data class EigenschaftSuccess(val value: Int,
+                                  val roll: Int,
+                                  val maxModifier: Int) : EigenschaftCheckResult()
+
+    data class EigenschaftFailure(val value: Int,
+                                  val roll: Int,
+                                  val maxModifier: Int) : EigenschaftCheckResult()
+}
