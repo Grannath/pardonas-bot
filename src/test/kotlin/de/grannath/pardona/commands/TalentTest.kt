@@ -322,9 +322,9 @@ class ModifiedTalent {
     }
 }
 
-fun mockedRandom(vararg values: Int): Random {
+fun mockedRandom(vararg values: Int, sides: Int = 20): Random {
     val random = Mockito.mock(Random::class.java)
-    values.fold(Mockito.`when`(random.nextInt(19))) { mock, value ->
+    values.fold(Mockito.`when`(random.nextInt(sides - 1))) { mock, value ->
         mock.thenReturn(value - 1)
     }
     return random
