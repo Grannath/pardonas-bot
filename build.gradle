@@ -42,6 +42,8 @@ dependencies {
 
     compile('org.springframework.boot:spring-boot-starter-web')
 
+    compile('org.springframework.boot:spring-boot-starter-actuator')
+
     compile('com.github.austinv11:Discord4J:2.8.1')
 
 	testCompile('org.springframework.boot:spring-boot-starter-test')
